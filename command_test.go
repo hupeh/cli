@@ -74,7 +74,9 @@ func TestCommand_PrintUsage(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	cmd.SetOutput(buf)
-	cmd.PrintUsage()
+	if err := cmd.PrintUsage(); err != nil {
+		t.Fatalf("PrintUsage failed: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "test") {
@@ -97,7 +99,9 @@ func TestCommand_PrintUsageWithAppName(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	cmd.SetOutput(buf)
-	cmd.PrintUsage()
+	if err := cmd.PrintUsage(); err != nil {
+		t.Fatalf("PrintUsage failed: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "myapp test") {

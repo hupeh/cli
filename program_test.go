@@ -152,7 +152,9 @@ func TestProgram_PrintUsage(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	prog.SetOutput(buf)
-	prog.PrintUsage()
+	if err := prog.PrintUsage(); err != nil {
+		t.Fatalf("PrintUsage failed: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "testapp") {
@@ -178,7 +180,9 @@ func TestProgram_PrintUsageWithBanner(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	prog.SetOutput(buf)
-	prog.PrintUsage()
+	if err := prog.PrintUsage(); err != nil {
+		t.Fatalf("PrintUsage failed: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "TEST APP BANNER") {
