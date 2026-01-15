@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -75,23 +76,22 @@ func (c *Command) SetAppName(name string) {
 	c.appName = name
 }
 
-// PrintUsage 打印命令使用帮助到默认输出
-func (c *Command) PrintUsage() {
-	c.PrintUsageTo(c.Output())
-}
+// PrintUsage 打印命令使用帮助到指定输出
+func (c *Command) PrintUsage() error {
+	w := c.Output()
+	var b []byte
 
-// PrintUsageTo 打印命令使用帮助到指定的 Writer
-func (c *Command) PrintUsageTo(w io.Writer) {
 	// 如果有应用名称，显示完整用法
 	if c.appName != "" {
-		_, _ = fmt.Fprintf(w, "Usage: %s %s [options]\n\n", c.appName, c.Name)
+		b = fmt.Appendf(b, "Usage: %s %s [options]\n\n", c.appName, c.Name)
 	} else {
-		_, _ = fmt.Fprintf(w, "Usage: %s [options]\n\n", c.Name)
+		b = fmt.Appendf(b, "Usage: %s [options]\n\n", c.Name)
 	}
-	_, _ = fmt.Fprintf(w, "%s\n", c.Usage)
+
+	b = fmt.Appendf(b, "%s\n", c.Usage)
 
 	if c.Description != "" {
-		_, _ = fmt.Fprintf(w, "\n%s\n", c.Description)
+		b = fmt.Appendf(b, "\n%s\n", c.Description)
 	}
 
 	// 检查是否有标志
@@ -101,13 +101,19 @@ func (c *Command) PrintUsageTo(w io.Writer) {
 	})
 
 	if hasFlags {
-		_, _ = fmt.Fprintln(w, "\nOptions:")
-		// 临时设置 FlagSet 的输出以便 PrintDefaults 输出到指定的 Writer
+		b = fmt.Appendln(b, "\nOptions:")
+		// 临时使用 bytes.Buffer 来捕获 PrintDefaults 的输出
+		var flagBuf bytes.Buffer
 		oldOutput := c.Flags.Output()
-		c.Flags.SetOutput(w)
+		c.Flags.SetOutput(&flagBuf)
 		c.Flags.PrintDefaults()
 		c.Flags.SetOutput(oldOutput)
+		b = append(b, flagBuf.Bytes()...)
 	}
+
+	// 一次性写入到 w
+	_, err := w.Write(b)
+	return err
 }
 
 // Run 执行命令（使用 context.Background()）
@@ -123,7 +129,9 @@ func (c *Command) RunContext(ctx context.Context, args []string) error {
 		c.Flags.Usage = func() {}
 	} else {
 		// 显示帮助时，使用自定义的 PrintUsage
-		c.Flags.Usage = c.PrintUsage
+		c.Flags.Usage = func() {
+			_ = c.PrintUsage() // 忽略错误，因为 flag.Usage 不返回错误
+		}
 	}
 
 	// 解析参数

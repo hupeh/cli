@@ -105,18 +105,6 @@ func TestCommand_PrintUsageWithAppName(t *testing.T) {
 	}
 }
 
-func TestCommand_PrintUsageTo(t *testing.T) {
-	cmd := NewCommand("test", "Test command")
-
-	buf := &bytes.Buffer{}
-	cmd.PrintUsageTo(buf)
-
-	output := buf.String()
-	if !strings.Contains(output, "test") {
-		t.Error("Expected output to contain command name")
-	}
-}
-
 func TestCommand_Run(t *testing.T) {
 	executed := false
 	cmd := NewCommand("test", "Test command")

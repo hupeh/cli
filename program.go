@@ -89,29 +89,27 @@ func (p *Program) get(name string) *Command {
 	return nil
 }
 
-// PrintUsage 打印总体使用帮助到默认输出
-func (p *Program) PrintUsage() {
-	p.PrintUsageTo(p.Output())
-}
+// PrintUsage 打印总体使用帮助到指定输出
+func (p *Program) PrintUsage() error {
+	w := p.Output()
+	var b []byte
 
-// PrintUsageTo 打印总体使用帮助到指定的 Writer
-func (p *Program) PrintUsageTo(w io.Writer) {
 	// 如果有横幅，先打印横幅
 	if p.Banner != "" {
-		_, _ = fmt.Fprintln(w, p.Banner)
-		_, _ = fmt.Fprintln(w) // 空行分隔
+		b = fmt.Appendln(b, p.Banner)
+		b = fmt.Appendln(b) // 空行分隔
 	}
 
-	_, _ = fmt.Fprintf(w, "%s version %s\n", p.Name, p.Version)
+	b = fmt.Appendf(b, "%s version %s\n", p.Name, p.Version)
 
 	// 如果有应用描述，打印它
 	if p.Usage != "" {
-		_, _ = fmt.Fprintf(w, "%s\n", p.Usage)
+		b = fmt.Appendf(b, "%s\n", p.Usage)
 	}
 
-	_, _ = fmt.Fprintf(w, "\nUSAGE:\n")
-	_, _ = fmt.Fprintf(w, "    %s [command] [options]\n\n", p.Name)
-	_, _ = fmt.Fprintf(w, "COMMANDS:\n")
+	b = fmt.Appendf(b, "\nUSAGE:\n")
+	b = fmt.Appendf(b, "    %s [command] [options]\n\n", p.Name)
+	b = fmt.Appendf(b, "COMMANDS:\n")
 
 	// 计算最长命令名长度，用于对齐
 	maxLen := 0
@@ -123,10 +121,14 @@ func (p *Program) PrintUsageTo(w io.Writer) {
 
 	// 按注册顺序打印命令
 	for _, cmd := range p.Commands {
-		fmt.Fprintf(w, "    %-*s    %s\n", maxLen, cmd.Name, cmd.Usage)
+		b = fmt.Appendf(b, "    %-*s    %s\n", maxLen, cmd.Name, cmd.Usage)
 	}
 
-	fmt.Fprintf(w, "\nRun '%s [command] -h' for more information on a command.\n", p.Name)
+	b = fmt.Appendf(b, "\nRun '%s [command] -h' for more information on a command.\n", p.Name)
+
+	// 一次性写入到 w
+	_, err := w.Write(b)
+	return err
 }
 
 // Run 运行命令（使用 context.Background()）
@@ -158,8 +160,7 @@ func (p *Program) RunContext(ctx context.Context, args []string) error {
 			}
 		} else {
 			// 没有默认命令，显示帮助
-			p.PrintUsage()
-			return nil
+			return p.PrintUsage()
 		}
 	} else {
 		// 显式指定了命令
@@ -170,19 +171,22 @@ func (p *Program) RunContext(ctx context.Context, args []string) error {
 	// 处理全局 flag（检查 cmdArgs 中是否包含全局 flag）
 	for _, arg := range cmdArgs {
 		if !p.HideVersionFlag && (arg == "-v" || arg == "--version") {
-			fmt.Fprintf(p.Output(), "%s version %s\n", p.Name, p.Version)
+			if _, err := fmt.Fprintf(p.Output(), "%s version %s\n", p.Name, p.Version); err != nil {
+				return err
+			}
 			return nil
 		}
 		if !p.HideHelpFlag && (arg == "-h" || arg == "--help") {
-			p.PrintUsage()
-			return nil
+			return p.PrintUsage()
 		}
 	}
 
 	// 处理特殊命令
 	// 1. 处理 version 命令
 	if !p.HideVersionCommand && cmdName == "version" {
-		fmt.Fprintf(p.Output(), "%s version %s\n", p.Name, p.Version)
+		if _, err := fmt.Fprintf(p.Output(), "%s version %s\n", p.Name, p.Version); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -193,27 +197,35 @@ func (p *Program) RunContext(ctx context.Context, args []string) error {
 			subCmdName := cmdArgs[0]
 			cmd := p.Get(subCmdName)
 			if cmd == nil {
-				fmt.Fprintf(p.Output(), "help: unknown command: %s\n", subCmdName)
+				if _, err := fmt.Fprintf(p.Output(), "help: unknown command: %s\n", subCmdName); err != nil {
+					return err
+				}
 				return fmt.Errorf("unknown command: %s", subCmdName)
 			}
-			cmd.PrintUsage()
-		} else {
-			// help - 显示总体帮助
-			p.PrintUsage()
+			return cmd.PrintUsage()
 		}
-		return nil
+		// help - 显示总体帮助
+		return p.PrintUsage()
 	}
 
 	// 查找并执行命令
 	cmd := p.Get(cmdName)
 	if cmd == nil {
 		if usingDefaultCommand {
-			_, _ = fmt.Fprintf(p.Output(), "Default command '%s' not found\n\n", cmdName)
-			p.PrintUsage()
+			if _, err := fmt.Fprintf(p.Output(), "Default command '%s' not found\n\n", cmdName); err != nil {
+				return err
+			}
+			if err := p.PrintUsage(); err != nil {
+				return err
+			}
 			return fmt.Errorf("default command not found: %s", cmdName)
 		}
-		_, _ = fmt.Fprintf(p.Output(), "Unknown command: %s\n\n", cmdName)
-		p.PrintUsage()
+		if _, err := fmt.Fprintf(p.Output(), "Unknown command: %s\n\n", cmdName); err != nil {
+			return err
+		}
+		if err := p.PrintUsage(); err != nil {
+			return err
+		}
 		return fmt.Errorf("unknown command: %s", cmdName)
 	}
 

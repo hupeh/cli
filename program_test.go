@@ -186,18 +186,6 @@ func TestProgram_PrintUsageWithBanner(t *testing.T) {
 	}
 }
 
-func TestProgram_PrintUsageTo(t *testing.T) {
-	prog := NewProgram("testapp", "1.0.0")
-
-	buf := &bytes.Buffer{}
-	prog.PrintUsageTo(buf)
-
-	output := buf.String()
-	if !strings.Contains(output, "testapp") {
-		t.Error("Expected output to contain app name")
-	}
-}
-
 func TestProgram_RunNoArgs(t *testing.T) {
 	prog := NewProgram("testapp", "1.0.0")
 	buf := &bytes.Buffer{}
