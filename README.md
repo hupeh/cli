@@ -275,6 +275,41 @@ customVersion.Action = func(ctx context.Context, cmd *cli.Command) error {
 app.VersionCommand = customVersion
 ```
 
+### 默认命令
+
+设置默认命令，当用户不提供命令时自动执行：
+
+```go
+app := cli.NewProgram("myapp", "1.0.0")
+app.DefaultCommand = "serve" // 设置默认命令
+
+serveCmd := cli.NewCommand("serve", "Start the server")
+serveCmd.Flags.Int("port", 8080, "Port to listen on")
+serveCmd.Action = func(ctx context.Context, cmd *cli.Command) error {
+	port := cmd.Flags.Lookup("port").Value.String()
+	fmt.Printf("Server listening on port %s\n", port)
+	return nil
+}
+
+app.Commands = []*cli.Command{serveCmd}
+```
+
+使用示例：
+
+```bash
+# 不提供命令时，执行默认命令 serve
+$ myapp
+Server listening on port 8080
+
+# 可以传递 flag 给默认命令
+$ myapp --port 3000
+Server listening on port 3000
+
+# 显式指定其他命令
+$ myapp help
+# 显示帮助信息
+```
+
 ## API 文档
 
 ### Program
@@ -286,6 +321,7 @@ type Program struct {
 	Usage              string     // 应用描述
 	Version            string     // 应用版本
 	Banner             string     // 应用横幅（ASCII 艺术字等）
+	DefaultCommand     string     // 默认命令名称（当未指定命令时使用）
 	HideHelpCommand    bool       // 隐藏 help 命令
 	HideVersionCommand bool       // 隐藏 version 命令
 	HideHelpFlag       bool       // 隐藏 -h/--help 标志
@@ -300,8 +336,7 @@ func (p *Program) RunContext(ctx context.Context, args []string) error
 func (p *Program) Get(name string) *Command
 func (p *Program) SetOutput(w io.Writer)
 func (p *Program) Output() io.Writer
-func (p *Program) PrintUsage()
-func (p *Program) PrintUsageTo(w io.Writer)
+func (p *Program) PrintUsage() error
 ```
 
 ### Command
@@ -324,8 +359,7 @@ func (c *Command) RunContext(ctx context.Context, args []string) error
 func (c *Command) SetOutput(w io.Writer)
 func (c *Command) Output() io.Writer
 func (c *Command) SetAppName(name string)
-func (c *Command) PrintUsage()
-func (c *Command) PrintUsageTo(w io.Writer)
+func (c *Command) PrintUsage() error
 ```
 
 ### ActionFunc
